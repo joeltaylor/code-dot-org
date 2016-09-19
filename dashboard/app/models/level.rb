@@ -321,6 +321,22 @@ class Level < ActiveRecord::Base
     Level.where(name: properties["contained_level_names"])
   end
 
+  def summarize
+    info = {
+      level_id: id,
+      type: self.class.to_s,
+      name: name
+    }
+    %w(title questions answers instructions markdown_instructions markdown pages).each do |key|
+      info[key] = properties[key] if properties[key]
+    end
+    if video_key
+      info[:video_youtube] = specified_autoplay_video.youtube_url
+      info[:video_download] = specified_autoplay_video.download
+    end
+    info
+  end
+
   private
 
   def write_to_file?

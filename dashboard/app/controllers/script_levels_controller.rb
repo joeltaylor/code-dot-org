@@ -127,6 +127,8 @@ class ScriptLevelsController < ApplicationController
     render json: []
   end
 
+  # Provides an aggregated view of instructions for a script, to make things easier
+  # for levelbuilders
   def instructions
     require_levelbuilder_mode
     authorize! :read, ScriptLevel
@@ -134,6 +136,40 @@ class ScriptLevelsController < ApplicationController
     script = Script.get_from_cache(params[:script_id])
 
     render 'levels/instructions', locals: { stages: script.stages }
+  end
+
+  # Provides a JSON summary of a particular stage
+  def summary
+    require_levelbuilder_mode
+    authorize! :read, ScriptLevel
+
+    script = Script.get_from_cache(params[:script_id])
+
+    if params[:stage_position]
+      stage = script.stages.select{|s| !s.lockable? && s.relative_position == params[:stage_position].to_i }.first
+    else
+      stage = script.stages.select{|s| s.lockable? && s.relative_position == params[:lockable_stage_position].to_i }.first
+    end
+
+    render json: {
+      stageName: stage.name,
+      lockable: stage.lockable? ? true : false,
+      levels: stage.script_levels.map do |script_level|
+        level = script_level.level
+        level_json = {
+          id: script_level.id,
+          position: script_level.position,
+          named_level: script_level.named_level?,
+          path: build_script_level_path(script_level)
+        }
+
+        # Right now we don't further dig into each level in a level group, though
+        # this is somethign we could do if we wanted.
+        level_json.merge!(level.summarize)
+
+        level_json
+      end
+    }
   end
 
   private
